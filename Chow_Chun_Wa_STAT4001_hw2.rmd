@@ -1,0 +1,87 @@
+---
+output: html_document
+---
+
+# STAT4001 Homework 2
+
+```{r, echo=FALSE}
+library(glmnet)
+```
+
+```{r}
+set.seed(1)
+X = rnorm(100,0,1)
+epsilon = rnorm(100,0,0.1)
+Y = 1+X+X^2+X^3+epsilon
+grid = 10^seq(10,-2,length=100)
+```
+
+Now generate matrix:
+
+```{r}
+Xmat = X
+for (i in 2:10) {
+	Xmat = cbind(Xmat,X^i)
+}
+
+```{r}
+lasso.mod = glmnet(Xmat,Y,alpha=1,lambda=grid)
+plot(lasso.mod)
+```
+
+```{r, echo=FALSE}
+train = sample(1:nrow(Xmat),nrow(Xmat)/2)
+test = (-train)
+Y.test = Y[test]
+Y.train = Y[train]
+```
+
+```{r}
+cv.out = cv.glmnet(Xmat[train,],Y.train,alpha=1)
+plot(cv.out)
+```
+
+```{r}
+bestlam = cv.out$lambda.min
+bestlam
+```
+
+```{r}
+lasso.pred = predict(lasso.mod,s=bestlam,newx=Xmat[test,])
+mean((lasso.pred-Y.test)^2)
+out = glmnet(Xmat,Y,alpha=1,lambda=grid)
+lasso.coef = predict(out,type="coefficients",s=bestlam)[1:11,]
+lasso.coef
+```
+
+Part d:
+
+```{r}
+Ynew = 1+X^7+epsilon
+lasso.mod = glmnet(Xmat,Ynew,alpha=1,lambda=grid)
+plot(lasso.mod)
+
+```{r, echo=FALSE}
+train = sample(1:nrow(Xmat),nrow(Xmat)/2)
+test = (-train)
+Ynew.test = Ynew[test]
+Ynew.train = Ynew[train]
+```
+
+```{r}
+cv.out = cv.glmnet(Xmat[train,],Ynew.train,alpha=1)
+plot(cv.out)
+```
+
+```{r}
+bestlam = cv.out$lambda.min
+bestlam
+```
+
+```{r}
+lasso.pred = predict(lasso.mod,s=bestlam,newx=Xmat[test,])
+mean((lasso.pred-Ynew.test)^2)
+out = glmnet(Xmat,Ynew,alpha=1,lambda=grid)
+lasso.coef = predict(out,type="coefficients",s=bestlam)[1:11]
+lasso.coef
+```

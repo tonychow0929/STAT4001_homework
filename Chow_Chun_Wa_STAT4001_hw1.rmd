@@ -1,0 +1,101 @@
+---
+output: html_document
+---
+
+# STAT4001 Homework 1
+
+```{r}
+n = 100
+mu1 = 0
+mu2 = 1
+sigma = 1
+pi1 = 0.4
+pi2 = 0.6
+
+s = sample(1:2,size=n,replace=TRUE,prob=c(pi1,pi2))
+n1 = sum(s==1)
+n2 = sum(s==2)
+data1 = rnorm(n1,mu1,sigma)
+data2 = rnorm(n2,mu2,sigma)
+
+pi1hat = n1/n
+pi2hat = n2/n
+mu1hat = mean(data1)
+mu2hat = mean(data2)
+sigma1hat_2 = 1/(n1-1)*sum((data1-mu1hat)^2)
+sigma2hat_2 = 1/(n2-1)*sum((data2-mu2hat)^2)
+sigmahat_2 = (n1-1)/(n-2)*sigma1hat_2 + (n2-1)/(n-1)*sigma2hat_2
+
+(mu1+mu2)/2 + (sigma^2)/(mu1-mu2)*log(pi2/pi1)
+(mu1hat+mu2hat)/2 + (sigmahat_2)/(mu1hat-mu2hat)*log(pi2hat/pi1hat)
+```
+
+```{r, echo=FALSE}
+library(ISLR)
+names(Weekly)
+```
+
+```{r}
+#numerical summaries
+dim(Weekly) #1089 9
+summary(Weekly)
+cor(Weekly[,-9])
+
+#graphical summaries
+pairs(Weekly)
+attach(Weekly)
+plot(Volume)
+glm.fits = glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5, data=Weekly, family=binomial)
+summary(glm.fits)
+glm.probs = predict(glm.fits,type="response")
+glm.pred = rep("Down",1089)
+glm.pred[glm.probs > 0.5] = "Up"
+
+#confusion matrix
+table(glm.pred,Direction)
+#overall correctness
+(49+564)/1089
+```
+
+```{r}
+#part c
+train = (Year <= 2008)
+glm.fits = glm(Direction~Lag2, data=Weekly, family=binomial, subset=train)
+glm.probs = predict(glm.fits, Weekly[!train,], type="response")
+length(Direction[!train]) #104
+```
+
+```
+glm.pred = rep("Down", len)
+glm.pred[glm.probs>0.5] = "Up"
+mat = table(glm.pred, Direction[!train])
+#overall correctness
+(mat[1, 1] + mat[2, 2])/sum(mat)
+```
+
+```{r}
+#part d
+#lda
+library(MASS)
+lda.fit = lda(Direction~Lag2, data=Weekly, subset=train)
+lda.pred = predict(lda.fit, Weekly[!train,])
+mat = table(lda.pred$class,Direction[!train])
+(mat[1, 1] + mat[2, 2])/sum(mat)
+
+#qda
+qda.fit = qda(Direction~Lag2, data=Weekly, subset=train)
+mat = table(predict(qda.fit, Weekly[!train,])$class, Direction[!train])
+(mat[1, 1] + mat[2, 2])/sum(mat)
+
+```{r, echo=FALSE}
+library(class)
+```
+
+```{r}
+set.seed(1)
+knn.pred = knn(array(Lag2)[train], array(Lag2)[!train], array(Direction)[train], k=1)
+#need to convert to array because vectors do not have dimension information
+mat = table(knn.pred, Direction[!train])
+(mat[1, 1] + mat[2, 2])/sum(mat)
+
+```

@@ -1,0 +1,162 @@
+---
+title: "STAT4001 Homework3"
+output: html_document
+---
+```{r, include=FALSE}
+library(MASS)
+library(boot)
+library(splines)
+library(tree)
+library(randomForest)
+library(ISLR)
+library(gbm)
+```
+
+
+```{r}
+# Q3
+attach(Boston)
+```
+
+```{r}
+fit = lm(nox~poly(dis,3),data=Boston)
+dislims = range(dis)
+dis.grid = seq(from=dislims[1],to=dislims[2])
+newdatalist = list(dis=dis.grid);
+preds = predict(fit,newdata=newdatalist,se=TRUE)
+se.bands = cbind(preds$fit+2*preds$se.fit, preds$fit-2*preds$se.fit)
+```
+
+```{r}
+# Plot the data
+par(mar=c(4.5,4.5,1,1),oma=c(0,0,4,0))
+plot(dis,nox,xlim=dislims,cex=0.5,col="darkgrey")
+title("Cubic Polynomial", outer=TRUE)
+lines(dis.grid,preds$fit,lwd=2,col="green")
+matlines(dis.grid,se.bands,lwd=1,col="green",lty=3)
+```
+```{r}
+newfit = vector(mode="list",length=10)
+cverror = vector(mode="list",length=10)
+```
+
+```{r}
+for (degree in 1:10) {
+  newfit[[degree]] = glm(nox~poly(dis,degree),data=Boston)
+  cverror[[degree]] = cv.glm(Boston,newfit[[degree]])$delta[2]
+}
+which.min(array(cverror))
+```
+
+```{r}
+for (degree in 1:10) {
+  newfit[[degree]] = lm(nox~poly(dis,degree),data=Boston)
+}
+anova(newfit[[1]],newfit[[2]],newfit[[3]],newfit[[4]],newfit[[5]],newfit[[6]],newfit[[7]],newfit[[8]],newfit[[9]],newfit[[10]])
+# optimal degree is 2
+```
+
+```{r, warning=FALSE}
+splinefit = vector(mode="list",length=12)
+cverror = vector(mode="list", length=12)
+for (degreef in 3:12) {
+  splinefit[[degreef]] = glm(nox~bs(dis,df=degreef))
+  cverror[[degreef]] = cv.glm(data=Boston,glmfit=splinefit[[degreef]])$delta[2]
+}
+min_df = which.min(unlist(cverror[3:12]))+2
+```
+
+```{r}
+min_df
+```
+
+```{r}
+preds = predict(splinefit[[min_df]],newdatalist,se=TRUE)
+se.bands = cbind(preds$fit+2*preds$se.fit, preds$fit-2*preds$se.fit)
+plot(dis,nox,xlim=dislims,cex=0.5,col="darkgrey")
+title("Spline")
+lines(dis.grid,preds$fit,lwd=2,col="green")
+matlines(dis.grid,se.bands,lwd=1,col="green",lty=3)
+```
+
+```{r}
+# Q4
+attach(Carseats)
+```
+
+```{r}
+set.seed(1)
+train = sample(1:nrow(Carseats),nrow(Carseats)/2)
+tree.carseats = tree(Sales~.,Carseats,subset=train)
+plot(tree.carseats)
+text(tree.carseats,pretty=0)
+```
+
+```{r}
+yhat = predict(tree.carseats,newdata=Carseats[-train])
+mean((yhat - Carseats[-train,"Sales"])^2)
+```
+
+```{r}
+bag.carseats = randomForest(Sales~.,data=Carseats,subset=train,importance=TRUE)
+importance(bag.carseats)
+```
+
+```{r}
+carseats.test = Carseats[-train,"Sales"]
+yhat.bag = predict(bag.carseats, newdata=Carseats[-train,])
+plot(yhat.bag,carseats.test)
+abline(0,1)
+mean((yhat.bag-carseats.test)^2)
+```
+
+```{r}
+# mtry = 2
+bag.carseats = randomForest(Sales~.,data=Carseats,subset=train,importance=TRUE,mtry=2)
+yhat.bag = predict(bag.carseats,newdata=Carseats[-train,])
+mean((yhat.bag-carseats.test)^2)
+```
+
+```{r}
+# mtry = 4
+bag.carseats = randomForest(Sales~.,data=Carseats,subset=train,importance=TRUE,mtry=4)
+yhat.bag = predict(bag.carseats,newdata=Carseats[-train,])
+mean((yhat.bag-carseats.test)^2)
+```
+
+```{r}
+# Q5
+attach(Hitters)
+Hitters = na.omit(Hitters)
+Hitters$Salary = log(Hitters$Salary)
+```
+
+```{r}
+train = 1:200
+Hitters.train = Hitters[train,]
+Hitters.test = Hitters[-train,]
+```
+
+```{r}
+lambdas = c(0.0001,0.0002,0.0005,0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2)
+# length is 11
+boostresult = vector(mode="list",length=11)
+mse = vector(mode="list",length=11)
+for (i in 1:11) {
+  boostresult[[i]] = gbm(Salary~.,data=Hitters.train,distribution="gaussian",interaction.depth=4,shrinkage=lambdas[i],n.trees=1000)
+  yhat = predict(boostresult[[i]],newdata=Hitters.test,n.trees=1000)
+  mse[[i]] = mean((yhat - Hitters.test$Salary)^2)
+}
+plot(lambdas,array(mse))
+```
+
+```{r}
+# numerical results
+cbind(lambdas,array(mse))
+```
+
+```{r}
+bag.hitters = randomForest(Salary~.,data=Hitters.train,subset=train)
+yhat = predict(bag.hitters,newdata=Hitters.test)
+mean((yhat-Hitters.test$Salary)^2)
+```
